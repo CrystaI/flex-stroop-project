@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009"
+					   xmlns:s="library://ns.adobe.com/flex/spark"
+					   xmlns:mx="library://ns.adobe.com/flex/mx"
+					   creationComplete="initApp();" minWidth="1920" minHeight="1080">
+	<fx:Declarations>
+		<!-- Placer ici les éléments non visuels (services et objets de valeur, par exemple). -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			
+			import flash.events.Event;
+			
+			private function initApp():void {
+				this.addEventListener(KeyboardEvent.KEY_UP, keyHandler);
+			}
+			
+			private function keyHandler(event:KeyboardEvent):void {
+				message.text = "Keypress detected keyCode:"+event.keyCode + " CharCode:" + event.charCode;
+			}
+			
+			private function generateNumber1to4():Number{
+				var low:Number = 1;
+				var high:Number= 4;
+				var result:Number = Math.floor(Math.random() * (1 + high - low)) + low;
+				return result;
+			}
+			
+			private function generateQuestionColor():String{
+				var num:Number = generateNumber1to4();
+				switch(num){
+					case 1:
+						// Red
+						return "#FF0000";
+					case 2:
+						// Blue
+						return "#0000FF";
+					case 3:
+						// Green
+						return "#169C16";
+					case 4:
+						// Yellow
+						return "#F7FE2E";
+					default:
+						// White
+						return "#FFFFFF";
+				}
+			}
+			
+			private function generateQuestionText():String{
+				var num:Number = generateNumber1to4();
+				switch(num){
+					case 1:
+						// Red
+						return "Red";
+					case 2:
+						// Blue
+						return "Blue";
+					case 3:
+						// Green
+						return "Green";
+					case 4:
+						// Yellow
+						return "Yellow";
+					default:
+						// White
+						return "White";
+				}
+			}
+			
+			private function buttonToColorUint(event:Event):String{
+				switch(event.target.id){
+					case "Red":
+						return "16711680";
+					case "Blue":
+						return "255";
+					case "Green":
+						return "1481750";
+					case "Yellow":
+						return "16252462";
+					default:
+						return "#FFFFFF";
+				}
+				
+			}
+			
+			private function printMessage(event:Event):void  {
+				if(buttonToColorUint(event)==color_test.getStyle('color')){
+					message.text = "Correct answer";
+					color_test.setStyle('color',generateQuestionColor());
+					color_test.text=generateQuestionText()	
+				}
+				else{
+					message.text = "Wrong answer";
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<mx:Panel  width="100%" height="100%" layout="horizontal" paddingBottom="10" paddingLeft="10"
+			   paddingRight="10" paddingTop="10" verticalAlign="middle" horizontalAlign="center" title="Stroop Task">
+		
+		<mx:VBox>
+			<mx:TextArea id="color_test" width="100%" height="100%"   textAlign="center" contentBackgroundColor="#D8D8D8" fontSize="20" borderVisible="false" color="#F7FE2E" editable="false" text="Blue"/>
+			<mx:HBox>	
+				<!-- By default, the look and feel of the customized button is
+				similar to the Default Button.  -->
+				<mx:Button id="Green" label="Green" click="printMessage(event)"/>
+				
+				<mx:Button id="Blue" label="Blue" click="printMessage(event)"/>
+				
+				<mx:Button id="Yellow" label="Yellow" click="printMessage(event)"/>
+				
+				<mx:Button id="Red" label="Red" click="printMessage(event)"/>
+			</mx:HBox>
+			
+			<mx:TextArea id="message" width="100%" height="100%" color="#0000FF" editable="false" text=""/>
+			
+		</mx:VBox>
+		
+		
+	</mx:Panel>
+	
+	
+	
+	
+</s:WindowedApplication>
+
