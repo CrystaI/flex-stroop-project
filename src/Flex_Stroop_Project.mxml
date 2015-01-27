@@ -2,27 +2,58 @@
 <s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009"
 					   xmlns:s="library://ns.adobe.com/flex/spark"
 					   xmlns:mx="library://ns.adobe.com/flex/mx"
-					   minWidth="1920" minHeight="1080" creationComplete="initApp();">
+					   xmlns:ui="com.complib.common.ui.*"
+					   minWidth="1920" minHeight="1080" closing="onClosing(event)"
+					   creationComplete="initApp();">
+	
 	<fx:Declarations>
 		<!-- Placer ici les éléments non visuels (services et objets de valeur, par exemple). -->
 		<s:Sequence id="fadeSignalAcknowledgement" duration="1000" target="{signal_ak}">
 			<s:Fade id="fadeShow" alphaFrom="0.0" alphaTo="1.0"/>
 			<s:Fade id="fadeHide" alphaFrom="1.0" alphaTo="0.0"/>
 		</s:Sequence>
-
 	</fx:Declarations>
+	
 	
 	<fx:Script>
 		<![CDATA[
-			
 			import flash.events.Event;
+			
+			import mx.formatters.DateFormatter;
+			
+			private var xmlResult:String;
+			
+			private var nativeProcessStartupInfo:NativeProcessStartupInfo = new NativeProcessStartupInfo();
+			private var process:NativeProcess = new NativeProcess();
+			
+			private function runExeFile(path:String):void{
+				if(NativeProcess.isSupported){
+					var file:File = File.applicationDirectory;
+					file = file.resolvePath(path);
+					nativeProcessStartupInfo.executable = file;
+					process.start(nativeProcessStartupInfo);
+				}
+				else{
+				}
+			}
+			
+			private function onClosing(event:Event):void{
+				this.writeXML();
+			}
 			
 			private function initApp():void {
 				this.addEventListener(KeyboardEvent.KEY_UP, keyHandler);
+				this.runExeFile("C:\\Windows\\System32\\notepad.exe");
+				xmlResult = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"+"\n";
 			}
 			
 			private function keyHandler(event:KeyboardEvent):void {
+				var CurrentDateTime:Date = new Date();
+				var CurrentDF:DateFormatter = new DateFormatter();
+				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
+				var time:String = CurrentDF.format(CurrentDateTime);
 				message.text = "Keypress detected keyCode:"+event.keyCode + " CharCode:" + event.charCode;
+				xmlResult += "<signal_detected>"+time+"</signal_detected>"+"\n";
 				fadeSignalAcknowledgement.end();
 				fadeSignalAcknowledgement.play();
 			}
@@ -92,14 +123,44 @@
 				
 			}
 			
+			private function writeXML():void{
+				var CurrentDateTime:Date = new Date();
+				var CurrentDF:DateFormatter = new DateFormatter();
+				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
+				var time:String = CurrentDF.format(CurrentDateTime);
+
+				var myPattern:RegExp = /\//g;  
+				time = time.replace(myPattern, "-");
+				myPattern = /\./g;
+				time = time.replace(myPattern, "-");
+				myPattern = /:/g;
+				time = time.replace(myPattern, "_");
+
+				var fName:String="./StroopResults"+time+"/xml/stroop_results.xml";//define the name of the folder
+				var file:File = File.desktopDirectory.resolvePath(fName);//with "File.desktopDirectory" point the file to the user desktop
+				var stream:FileStream = new FileStream();// Opena new fileStream
+				
+				stream.open(file, FileMode.WRITE);//put the filemode on "write"
+
+				stream.writeUTFBytes(xmlResult);//assign the string that we have to write
+				stream.close();//close the fileStream
+			}
+			
 			private function printMessage(event:Event):void  {
+				var CurrentDateTime:Date = new Date();
+				var CurrentDF:DateFormatter = new DateFormatter();
+				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
+				var time:String = CurrentDF.format(CurrentDateTime);
+				
 				if(buttonToColorUint(event)==color_test.getStyle('color')){
 					message.text = "Correct answer";
+					xmlResult += "<correct_answer>"+time+"</correct_answer>"+"\n";
 					color_test.setStyle('color',generateQuestionColor());
 					color_test.text=generateQuestionText()	
 				}
 				else{
 					message.text = "Wrong answer";
+					xmlResult += "<wrong_answer>"+time+"</wrong_answer>"+"\n";
 				}
 			}
 			
@@ -111,14 +172,14 @@
 			  title="Stroop Task" verticalAlign="middle">
 		
 		<mx:VBox>
+			
 			<mx:TextArea id="signal_ak" visible="true" width="100%" height="100%" alpha="0.0"
 						 borderVisible="false" fontSize="20" text="Signal acknowledgement received"/>
 			<mx:TextArea id="color_test" width="100%" height="100%" borderVisible="false"
 						 color="#F7FE2E" contentBackgroundColor="#D8D8D8" editable="false"
 						 fontSize="20" text="Blue" textAlign="center"/>
-			<mx:HBox>	
-				<!-- By default, the look and feel of the customized button is
-				similar to the Default Button.  -->
+			<mx:HBox>
+				
 				<mx:Button id="Green" label="Green" click="printMessage(event)"/>
 				
 				<mx:Button id="Blue" label="Blue" click="printMessage(event)"/>
@@ -126,13 +187,13 @@
 				<mx:Button id="Yellow" label="Yellow" click="printMessage(event)"/>
 				
 				<mx:Button id="Red" label="Red" click="printMessage(event)"/>
+				
 			</mx:HBox>
 			
 			<mx:TextArea id="message" width="100%" height="100%" color="#0000FF" editable="false"
 						 text=""/>
 			
 		</mx:VBox>
-		
 		
 	</mx:Panel>
 	
