@@ -2,9 +2,14 @@
 <s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009"
 					   xmlns:s="library://ns.adobe.com/flex/spark"
 					   xmlns:mx="library://ns.adobe.com/flex/mx"
-					   creationComplete="initApp();" minWidth="1920" minHeight="1080">
+					   minWidth="1920" minHeight="1080" creationComplete="initApp();">
 	<fx:Declarations>
 		<!-- Placer ici les éléments non visuels (services et objets de valeur, par exemple). -->
+		<s:Sequence id="fadeSignalAcknowledgement" duration="1000" target="{signal_ak}">
+			<s:Fade id="fadeShow" alphaFrom="0.0" alphaTo="1.0"/>
+			<s:Fade id="fadeHide" alphaFrom="1.0" alphaTo="0.0"/>
+		</s:Sequence>
+
 	</fx:Declarations>
 	
 	<fx:Script>
@@ -18,6 +23,8 @@
 			
 			private function keyHandler(event:KeyboardEvent):void {
 				message.text = "Keypress detected keyCode:"+event.keyCode + " CharCode:" + event.charCode;
+				fadeSignalAcknowledgement.end();
+				fadeSignalAcknowledgement.play();
 			}
 			
 			private function generateNumber1to4():Number{
@@ -99,11 +106,16 @@
 		]]>
 	</fx:Script>
 	
-	<mx:Panel  width="100%" height="100%" layout="horizontal" paddingBottom="10" paddingLeft="10"
-			   paddingRight="10" paddingTop="10" verticalAlign="middle" horizontalAlign="center" title="Stroop Task">
+	<mx:Panel width="100%" height="100%" horizontalAlign="center" layout="horizontal"
+			  paddingBottom="10" paddingLeft="10" paddingRight="10" paddingTop="10"
+			  title="Stroop Task" verticalAlign="middle">
 		
 		<mx:VBox>
-			<mx:TextArea id="color_test" width="100%" height="100%"   textAlign="center" contentBackgroundColor="#D8D8D8" fontSize="20" borderVisible="false" color="#F7FE2E" editable="false" text="Blue"/>
+			<mx:TextArea id="signal_ak" visible="true" width="100%" height="100%" alpha="0.0"
+						 borderVisible="false" fontSize="20" text="Signal acknowledgement received"/>
+			<mx:TextArea id="color_test" width="100%" height="100%" borderVisible="false"
+						 color="#F7FE2E" contentBackgroundColor="#D8D8D8" editable="false"
+						 fontSize="20" text="Blue" textAlign="center"/>
 			<mx:HBox>	
 				<!-- By default, the look and feel of the customized button is
 				similar to the Default Button.  -->
@@ -116,7 +128,8 @@
 				<mx:Button id="Red" label="Red" click="printMessage(event)"/>
 			</mx:HBox>
 			
-			<mx:TextArea id="message" width="100%" height="100%" color="#0000FF" editable="false" text=""/>
+			<mx:TextArea id="message" width="100%" height="100%" color="#0000FF" editable="false"
+						 text=""/>
 			
 		</mx:VBox>
 		
