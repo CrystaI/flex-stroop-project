@@ -17,11 +17,22 @@
 	
 	<fx:Script>
 		<![CDATA[
+			import com.as3xls.xls.ExcelFile;
+			import com.as3xls.xls.Sheet;
+			
 			import flash.events.Event;
 			
 			import mx.formatters.DateFormatter;
 			
+			// To get as3xls to work, make sure it is in the /libs folder.
+			// In Flash Builder, go to menu Windows > Preferences > General > Workspace > Linked Resources
+			// and add the .swc file to the linked resources.
+			// the import "import com.as3xls.xls.*;" tend to disappear when you add a new one
+			protected var xls:ExcelFile;
+			protected var sheet:Sheet;
 			private var xmlResult:String;
+			private var excelStroopRow:int;
+			private var excelSignalsRow:int;
 			
 			private var nativeProcessStartupInfo:NativeProcessStartupInfo = new NativeProcessStartupInfo();
 			private var process:NativeProcess = new NativeProcess();
@@ -39,12 +50,15 @@
 			
 			private function onClosing(event:Event):void{
 				this.writeXML();
+				this.writeExcel();
 			}
 			
 			private function initApp():void {
 				this.addEventListener(KeyboardEvent.KEY_UP, keyHandler);
 				this.runExeFile("C:\\Windows\\System32\\notepad.exe");
 				xmlResult = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"+"\n";
+				
+				this.initExcel();
 			}
 			
 			private function keyHandler(event:KeyboardEvent):void {
@@ -155,13 +169,65 @@
 				if(buttonToColorUint(event)==color_test.getStyle('color')){
 					message.text = "Correct answer";
 					xmlResult += "<correct_answer>"+time+"</correct_answer>"+"\n";
+					
+					// Excel results
+					sheet.setCell(excelStroopRow, 4, time);
+					sheet.setCell(excelStroopRow, 5, "1");
+					excelStroopRow++;
+					
+					// Next question
+					sheet.setCell(excelStroopRow, 3, time);
 					color_test.setStyle('color',generateQuestionColor());
-					color_test.text=generateQuestionText()	
+					color_test.text=generateQuestionText();
 				}
 				else{
 					message.text = "Wrong answer";
 					xmlResult += "<wrong_answer>"+time+"</wrong_answer>"+"\n";
+					
+					// Excel results
+					sheet.setCell(excelStroopRow, 4, time);
+					sheet.setCell(excelStroopRow, 5, "0");
+					excelStroopRow++;
+					
+					// Next question
+					sheet.setCell(excelStroopRow, 3, time);
+					color_test.setStyle('color',generateQuestionColor());
+					color_test.text=generateQuestionText();
 				}
+			}
+			
+			private function initExcel():void {
+				xls = new ExcelFile();
+				sheet = new Sheet();
+				sheet.resize(160, 12);
+				
+				sheet.setCell(0, 0, "Today's date:");
+				var CurrentDateTime:Date = new Date();
+				var CurrentDF:DateFormatter = new DateFormatter();
+				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
+				var time:String = CurrentDF.format(CurrentDateTime);
+				sheet.setCell(0, 2, time);
+				
+				sheet.setCell(1, 0, "Signal sent date");
+				sheet.setCell(1, 1, "Signal acknowledged date");
+				
+				sheet.setCell(1, 3, "Stroop test date");
+				sheet.setCell(1, 4, "Stroop answered date");
+				sheet.setCell(1, 5, "Stroop good answer 1/0");
+				
+				excelSignalsRow = 2;
+				excelStroopRow = 2;
+			}
+			
+			private function writeExcel():void {
+				xls.sheets.addItem(sheet);
+				var bytes:ByteArray = xls.saveToByteArray();
+				
+				var stream:FileStream = new FileStream();
+				var file:File = File.desktopDirectory.resolvePath("data.xls");
+				stream.open(file, FileMode.WRITE);
+				stream.writeBytes(bytes);
+				stream.close();
 			}
 			
 		]]>
