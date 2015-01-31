@@ -3,7 +3,7 @@
 					   xmlns:s="library://ns.adobe.com/flex/spark"
 					   xmlns:mx="library://ns.adobe.com/flex/mx"
 					   xmlns:ui="com.complib.common.ui.*"
-					   minWidth="1920" minHeight="1080" closing="onClosing(event)"
+					   minWidth="800" minHeight="600" closing="onClosing(event)"
 					   creationComplete="initApp();">
 	
 	<fx:Declarations>
@@ -17,36 +17,51 @@
 	
 	<fx:Script>
 		<![CDATA[
-			import com.as3xls.xls.ExcelFile;
-			import com.as3xls.xls.Sheet;
-			
-			import flash.events.Event;
-			
-			import mx.formatters.DateFormatter;
 			
 			// To get as3xls to work, make sure it is in the /libs folder.
 			// In Flash Builder, go to menu Windows > Preferences > General > Workspace > Linked Resources
 			// and add the .swc file to the linked resources.
 			// the import "import com.as3xls.xls.*;" tend to disappear when you add a new one
+			
+			/*---- Imports ----*/
+			
+			import com.as3xls.xls.ExcelFile;
+			import com.as3xls.xls.Sheet;
+			
+			import flash.events.Event;
+			import flash.events.TimerEvent;
+			import flash.utils.Timer;
+			
+			import mx.formatters.DateFormatter;
+			
+			/*---- Constants ----*/
+			
+			private const TIMER_INTERVAL:Number = 15000;
+			
+			/*---- Atributes ----*/
+			
 			protected var xls:ExcelFile;
 			protected var sheet:Sheet;
 			private var xmlResult:String;
 			private var excelStroopRow:int;
 			private var excelSignalsRow:int;
 			
+			private var nbErrorsStroop:int;
+			
+			private var baseSignalTimer:int;
+			private var signalTimer:Timer;
+			
+			[Embed(source="img/arrows_keyboard.png")]
+			[Bindable]
+			public var img:Class;
+			
 			private var nativeProcessStartupInfo:NativeProcessStartupInfo = new NativeProcessStartupInfo();
 			private var process:NativeProcess = new NativeProcess();
 			
-			private function runExeFile(path:String):void{
-				if(NativeProcess.isSupported){
-					var file:File = File.applicationDirectory;
-					file = file.resolvePath(path);
-					nativeProcessStartupInfo.executable = file;
-					process.start(nativeProcessStartupInfo);
-				}
-				else{
-				}
-			}
+			
+			/*---- Methods ----*/
+			
+			// Initialize methods
 			
 			private function onClosing(event:Event):void{
 				this.writeXML();
@@ -59,7 +74,11 @@
 				xmlResult = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"+"\n";
 				
 				this.initExcel();
+				this.initSignalTimer();
 			}
+			
+			
+			// Stroop methods
 			
 			private function keyHandler(event:KeyboardEvent):void {
 				var CurrentDateTime:Date = new Date();
@@ -101,6 +120,7 @@
 			}
 			
 			private function generateQuestionText():String{
+				nbErrorsStroop = 0;
 				var num:Number = generateNumber1to4();
 				switch(num){
 					case 1:
@@ -137,25 +157,42 @@
 				
 			}
 			
+			
+			// Call exe methods
+			
+			private function runExeFile(path:String):void{
+				if(NativeProcess.isSupported){
+					var file:File = File.applicationDirectory;
+					file = file.resolvePath(path);
+					nativeProcessStartupInfo.executable = file;
+					process.start(nativeProcessStartupInfo);
+				}
+				else{
+				}
+			}
+			
+			
+			// XML methods
+			
 			private function writeXML():void{
 				var CurrentDateTime:Date = new Date();
 				var CurrentDF:DateFormatter = new DateFormatter();
 				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
 				var time:String = CurrentDF.format(CurrentDateTime);
-
+				
 				var myPattern:RegExp = /\//g;  
 				time = time.replace(myPattern, "-");
 				myPattern = /\./g;
 				time = time.replace(myPattern, "-");
 				myPattern = /:/g;
 				time = time.replace(myPattern, "_");
-
+				
 				var fName:String="./StroopResults"+time+"/xml/stroop_results.xml";//define the name of the folder
 				var file:File = File.desktopDirectory.resolvePath(fName);//with "File.desktopDirectory" point the file to the user desktop
 				var stream:FileStream = new FileStream();// Opena new fileStream
 				
 				stream.open(file, FileMode.WRITE);//put the filemode on "write"
-
+				
 				stream.writeUTFBytes(xmlResult);//assign the string that we have to write
 				stream.close();//close the fileStream
 			}
@@ -172,7 +209,7 @@
 					
 					// Excel results
 					sheet.setCell(excelStroopRow, 4, time);
-					sheet.setCell(excelStroopRow, 5, "1");
+					sheet.setCell(excelStroopRow, 5, nbErrorsStroop);
 					excelStroopRow++;
 					
 					// Next question
@@ -185,16 +222,12 @@
 					xmlResult += "<wrong_answer>"+time+"</wrong_answer>"+"\n";
 					
 					// Excel results
-					sheet.setCell(excelStroopRow, 4, time);
-					sheet.setCell(excelStroopRow, 5, "0");
-					excelStroopRow++;
-					
-					// Next question
-					sheet.setCell(excelStroopRow, 3, time);
-					color_test.setStyle('color',generateQuestionColor());
-					color_test.text=generateQuestionText();
+					nbErrorsStroop++;
 				}
 			}
+			
+			
+			// Excel methods
 			
 			private function initExcel():void {
 				xls = new ExcelFile();
@@ -212,8 +245,8 @@
 				sheet.setCell(1, 1, "Signal acknowledged date");
 				
 				sheet.setCell(1, 3, "Stroop test date");
-				sheet.setCell(1, 4, "Stroop answered date");
-				sheet.setCell(1, 5, "Stroop good answer 1/0");
+				sheet.setCell(1, 4, "Stroop correct answer date");
+				sheet.setCell(1, 5, "Stroop errors");
 				
 				excelSignalsRow = 2;
 				excelStroopRow = 2;
@@ -230,20 +263,43 @@
 				stream.close();
 			}
 			
+			
+			// Timer Methods
+			
+			private function initSignalTimer(): void {
+				signalTimer = new Timer(TIMER_INTERVAL);
+				signalTimer.addEventListener(TimerEvent.TIMER, updateSignalTimer);
+			}
+			
+			private function updateSignalTimer(evt:TimerEvent):void {
+				// To be completed to call signal on smart cap
+			}
+			
+			private function startSignalTimer():void {
+				signalTimer.start();
+			}
+			
+			private function stopSignalTimer():void {
+				signalTimer.stop();
+				signalTimer.reset();
+			}
+			
 		]]>
 	</fx:Script>
 	
 	<mx:Panel width="100%" height="100%" horizontalAlign="center" layout="horizontal"
-			  paddingBottom="10" paddingLeft="10" paddingRight="10" paddingTop="10"
+			  paddingBottom="10" paddingLeft="10" paddingRight="10" paddingTop="100"
 			  title="Stroop Task" verticalAlign="middle">
 		
 		<mx:VBox>
 			
-			<mx:TextArea id="signal_ak" visible="true" width="100%" height="100%" alpha="0.0"
-						 borderVisible="false" fontSize="20" text="Signal acknowledgement received"/>
+			<mx:TextArea id="signal_ak" visible="true" width="100%" height="200%" alpha="0.0"
+						 borderVisible="false" fontSize="30" textAlign="center" 
+						 text="Signal acknowledgement received"/>
+			
 			<mx:TextArea id="color_test" width="100%" height="100%" borderVisible="false"
 						 color="#F7FE2E" contentBackgroundColor="#D8D8D8" editable="false"
-						 fontSize="20" text="Blue" textAlign="center"/>
+						 fontSize="25" text="Blue" textAlign="center"/>
 			<mx:HBox>
 				
 				<mx:Button id="Green" label="Green" click="printMessage(event)"/>
@@ -256,15 +312,14 @@
 				
 			</mx:HBox>
 			
-			<mx:TextArea id="message" width="100%" height="100%" color="#0000FF" editable="false"
-						 text=""/>
+			<mx:TextArea id="message" width="100%" height="100%" color="#0000FF" 
+						 editable="false" text=""/>
+			
+			<mx:Image id="myImageRaw" source="{img} " width="300"/>
 			
 		</mx:VBox>
 		
 	</mx:Panel>
-	
-	
-	
 	
 </s:WindowedApplication>
 
