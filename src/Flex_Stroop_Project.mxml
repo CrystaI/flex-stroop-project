@@ -24,7 +24,6 @@
 			// the import "import com.as3xls.xls.*;" tend to disappear when you add a new one
 			
 			/*---- Imports ----*/
-			
 			import com.as3xls.xls.ExcelFile;
 			import com.as3xls.xls.Sheet;
 			
@@ -35,11 +34,14 @@
 			import mx.formatters.DateFormatter;
 			
 			/*---- Constants ----*/
+			private const SECOND:Number = 1000;
+			private const MINUTE:Number = 60 * SECOND;
+			private const TIMER_INTERVAL:Number = 15 * SECOND;
+			private const TIMER_FIRST_SIGNAL:Number = 15 * SECOND;
+			private const MIN_RANDOM_INTERVAL:Number = 4;
+			private const MAX_RANDOM_INTERVAL:Number = 15;
 			
-			private const TIMER_INTERVAL:Number = 15000;
-			
-			/*---- Atributes ----*/
-			
+			/*---- Attributes ----*/
 			protected var xls:ExcelFile;
 			protected var sheet:Sheet;
 			private var xmlResult:String;
@@ -49,9 +51,10 @@
 			private var nbErrorsStroop:int;
 			
 			private var baseSignalTimer:int;
-			private var signalTimer:Timer;
+			private var allSignalsTimer:Timer;
+			private var oneSignalTimer:Timer;
 			
-			[Embed(source="img/arrows_keyboard.png")]
+			[Embed(source="./img/Arrows_keyboard.png")]
 			[Bindable]
 			public var img:Class;
 			
@@ -60,9 +63,6 @@
 			
 			
 			/*---- Methods ----*/
-			
-			// Initialize methods
-			
 			private function onClosing(event:Event):void{
 				this.writeXML();
 				this.writeExcel();
@@ -74,12 +74,11 @@
 				xmlResult = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"+"\n";
 				
 				this.initExcel();
-				this.initSignalTimer();
+				this.initSignalsTimer();
 			}
 			
 			
 			// Stroop methods
-			
 			private function keyHandler(event:KeyboardEvent):void {
 				var CurrentDateTime:Date = new Date();
 				var CurrentDF:DateFormatter = new DateFormatter();
@@ -158,8 +157,11 @@
 			}
 			
 			
-			// Call exe methods
-			
+			/**
+			 * This method is used to call a .exe application
+			 * to communicate with our prototype.
+			 * @path : path of the .exe to execute
+			 */
 			private function runExeFile(path:String):void{
 				if(NativeProcess.isSupported){
 					var file:File = File.applicationDirectory;
@@ -173,7 +175,6 @@
 			
 			
 			// XML methods
-			
 			private function writeXML():void{
 				var CurrentDateTime:Date = new Date();
 				var CurrentDF:DateFormatter = new DateFormatter();
@@ -197,6 +198,11 @@
 				stream.close();//close the fileStream
 			}
 			
+			/**
+			 * This function handles an answer to the stroop test.
+			 * It registers the results.
+			 * @event : Event to register
+			 */
 			private function printMessage(event:Event):void  {
 				var CurrentDateTime:Date = new Date();
 				var CurrentDF:DateFormatter = new DateFormatter();
@@ -227,8 +233,9 @@
 			}
 			
 			
-			// Excel methods
-			
+			/**
+			 * This method initialize the Excel file for registering data.
+			 */
 			private function initExcel():void {
 				xls = new ExcelFile();
 				sheet = new Sheet();
@@ -252,6 +259,10 @@
 				excelStroopRow = 2;
 			}
 			
+			/**
+			 * This method writes the Excel file.
+			 * Called in the end of the execution.
+			 */
 			private function writeExcel():void {
 				xls.sheets.addItem(sheet);
 				var bytes:ByteArray = xls.saveToByteArray();
@@ -265,23 +276,49 @@
 			
 			
 			// Timer Methods
-			
-			private function initSignalTimer(): void {
-				signalTimer = new Timer(TIMER_INTERVAL);
-				signalTimer.addEventListener(TimerEvent.TIMER, updateSignalTimer);
+			private function initSignalsTimer(): void {
+				allSignalsTimer = new Timer(TIMER_FIRST_SIGNAL, 1);
+				allSignalsTimer.addEventListener(TimerEvent.TIMER, sendSignal);
 			}
 			
-			private function updateSignalTimer(evt:TimerEvent):void {
-				// To be completed to call signal on smart cap
+			private function sendSignal(evt:TimerEvent):void {
+				// Calls our prototype with random parameters
+				/// TODO set the parameters
+				/// TODO register the parameters in the Excel file
+				/// TODO call the .exe
+				
+				// Count until 5 second before stopping the signal,
+				// If it has not been acknowledged as expected
+				oneSignalTimer = new Timer(5 * SECOND, 1);
+				oneSignalTimer.addEventListener(TimerEvent.TIMER, stopOneSignal);
 			}
 			
-			private function startSignalTimer():void {
-				signalTimer.start();
+			private function startSignalsTimer():void {
+				allSignalsTimer.start();
 			}
 			
-			private function stopSignalTimer():void {
-				signalTimer.stop();
-				signalTimer.reset();
+			private function stopSignalsTimer():void {
+				allSignalsTimer.stop();
+				allSignalsTimer.reset();
+			}
+			
+			private function stopOneSignal(ack:Boolean = false):void {
+				oneSignalTimer.stop();
+				oneSignalTimer.reset();
+				
+				if(ack) {
+					// The signal has been acknowledged
+					
+				}
+				else {
+					// The signal has not been seen and acknowldged
+					
+				}
+				
+				var random:int = Math.floor(Math.random() *
+					(MAX_RANDOM_INTERVAL - MIN_RANDOM_INTERVAL + 1)) + MIN_RANDOM_INTERVAL;
+				allSignalsTimer new Timer(random * SECOND, 1);
+				allSignalsTimer.addEventListener(TimerEvent.TIMER, sendSignal);
 			}
 			
 		]]>
