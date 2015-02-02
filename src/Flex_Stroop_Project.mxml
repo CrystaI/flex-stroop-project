@@ -54,10 +54,6 @@
 			private var allSignalsTimer:Timer;
 			private var oneSignalTimer:Timer;
 			
-			[Embed(source="./img/Arrows_keyboard.png")]
-			[Bindable]
-			public var img:Class;
-			
 			private var nativeProcessStartupInfo:NativeProcessStartupInfo = new NativeProcessStartupInfo();
 			private var process:NativeProcess = new NativeProcess();
 			
@@ -372,8 +368,6 @@
 			
 			<mx:TextArea id="message" width="100%" height="100%" color="#0000FF" 
 						 editable="false" text=""/>
-			
-			<mx:Image id="myImageRaw" source="{img} " width="300"/>
 			
 		</mx:VBox>
 		
