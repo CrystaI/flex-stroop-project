@@ -75,6 +75,7 @@
 				
 				this.initExcel();
 				this.initSignalsTimer();
+				this.startSignalsTimer();
 			}
 			
 			
@@ -88,6 +89,10 @@
 				xmlResult += "<signal_detected>"+time+"</signal_detected>"+"\n";
 				fadeSignalAcknowledgement.end();
 				fadeSignalAcknowledgement.play();
+				
+				if(oneSignalTimer.running) {
+					stopOneSignal(null);
+				}
 			}
 			
 			private function generateNumber1to4():Number{
@@ -214,12 +219,12 @@
 					xmlResult += "<correct_answer>"+time+"</correct_answer>"+"\n";
 					
 					// Excel results
-					sheet.setCell(excelStroopRow, 4, time);
-					sheet.setCell(excelStroopRow, 5, nbErrorsStroop);
+					sheet.setCell(excelStroopRow, 5, time);
+					sheet.setCell(excelStroopRow, 6, nbErrorsStroop);
 					excelStroopRow++;
 					
 					// Next question
-					sheet.setCell(excelStroopRow, 3, time);
+					sheet.setCell(excelStroopRow, 4, time);
 					color_test.setStyle('color',generateQuestionColor());
 					color_test.text=generateQuestionText();
 				}
@@ -250,10 +255,11 @@
 				
 				sheet.setCell(1, 0, "Signal sent date");
 				sheet.setCell(1, 1, "Signal acknowledged date");
+				sheet.setCell(1, 2, "Signal id");
 				
-				sheet.setCell(1, 3, "Stroop test date");
-				sheet.setCell(1, 4, "Stroop correct answer date");
-				sheet.setCell(1, 5, "Stroop errors");
+				sheet.setCell(1, 4, "Stroop test date");
+				sheet.setCell(1, 5, "Stroop correct answer date");
+				sheet.setCell(1, 6, "Stroop errors");
 				
 				excelSignalsRow = 2;
 				excelStroopRow = 2;
@@ -282,15 +288,31 @@
 			}
 			
 			private function sendSignal(evt:TimerEvent):void {
-				// Calls our prototype with random parameters
-				/// TODO set the parameters
-				/// TODO register the parameters in the Excel file
-				/// TODO call the .exe
+				// Calls our prototype with randomized parameters
+				/// set the parameters
+				var couleur:int = Math.floor(Math.random() *
+					(2 - 1 + 1)) + 1;
+				var forme:int = Math.floor(Math.random() *
+					(3 + 1));
+				var movement:int = Math.floor(Math.random() *
+					(2 + 1));
+				
+				/// register the parameters in the Excel file
+				sheet.setCell(excelSignalsRow, 2, 100*couleur + 10*forme + movement);
+				
+				/// call the .exe and register the starting time
+				var CurrentDateTime:Date = new Date();
+				var CurrentDF:DateFormatter = new DateFormatter();
+				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
+				var time:String = CurrentDF.format(CurrentDateTime);
+				sheet.setCell(excelSignalsRow, 0, time);
+				
 				
 				// Count until 5 second before stopping the signal,
 				// If it has not been acknowledged as expected
 				oneSignalTimer = new Timer(5 * SECOND, 1);
 				oneSignalTimer.addEventListener(TimerEvent.TIMER, stopOneSignal);
+				oneSignalTimer.start();
 			}
 			
 			private function startSignalsTimer():void {
@@ -302,23 +324,23 @@
 				allSignalsTimer.reset();
 			}
 			
-			private function stopOneSignal(ack:Boolean = false):void {
+			private function stopOneSignal(evt:TimerEvent):void {
+				var CurrentDateTime:Date = new Date();
+				var CurrentDF:DateFormatter = new DateFormatter();
+				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
+				var time:String = CurrentDF.format(CurrentDateTime);
+				
 				oneSignalTimer.stop();
 				oneSignalTimer.reset();
 				
-				if(ack) {
-					// The signal has been acknowledged
-					
-				}
-				else {
-					// The signal has not been seen and acknowldged
-					
-				}
+				// The end is registered either the signal has been seen or not
+				sheet.setCell(excelSignalsRow++, 1, time);
 				
 				var random:int = Math.floor(Math.random() *
 					(MAX_RANDOM_INTERVAL - MIN_RANDOM_INTERVAL + 1)) + MIN_RANDOM_INTERVAL;
 				allSignalsTimer new Timer(random * SECOND, 1);
 				allSignalsTimer.addEventListener(TimerEvent.TIMER, sendSignal);
+				allSignalsTimer.start();
 			}
 			
 		]]>
