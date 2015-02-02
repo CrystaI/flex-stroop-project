@@ -85,7 +85,6 @@
 				var CurrentDF:DateFormatter = new DateFormatter();
 				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
 				var time:String = CurrentDF.format(CurrentDateTime);
-				message.text = "Keypress detected keyCode:"+event.keyCode + " CharCode:" + event.charCode;
 				xmlResult += "<signal_detected>"+time+"</signal_detected>"+"\n";
 				fadeSignalAcknowledgement.end();
 				fadeSignalAcknowledgement.play();
