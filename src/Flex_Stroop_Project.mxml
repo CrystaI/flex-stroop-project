@@ -6,6 +6,13 @@
 					   minWidth="800" minHeight="600" closing="onClosing(event)"
 					   creationComplete="initApp();">
 	
+	<s:states>
+		<!-- Define the new view states. -->
+		<s:State name="Start"/>
+		<s:State name="Test"/>
+		<s:State name="End"/>
+	</s:states>
+	
 	<fx:Declarations>
 		<!-- Placer ici les éléments non visuels (services et objets de valeur, par exemple). -->
 		<s:Sequence id="fadeSignalAcknowledgement" duration="1000" target="{signal_ak}">
@@ -28,9 +35,11 @@
 			import com.as3xls.xls.Sheet;
 			
 			import flash.events.Event;
+			import flash.events.KeyboardEvent;
 			import flash.events.TimerEvent;
 			import flash.utils.Timer;
 			
+			import mx.controls.Button;
 			import mx.formatters.DateFormatter;
 			
 			/*---- Constants ----*/
@@ -65,15 +74,18 @@
 			}
 			
 			private function initApp():void {
-				this.addEventListener(KeyboardEvent.KEY_UP, keyHandler);
-				this.runExeFile("C:\\Windows\\System32\\notepad.exe");
-				xmlResult = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"+"\n";
-				
+				//this.runExeFile("C:\\Windows\\System32\\notepad.exe");
+				this.xmlResult = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"+"\n";
 				this.initExcel();
 				this.initSignalsTimer();
-				this.startSignalsTimer();
+				this.addEventListener(KeyboardEvent.KEY_UP, keyHandler);
 			}
 			
+			private function startTest():void {
+				this.currentState='Test';
+				this.focusManager.setFocus(color_test);
+				this.startSignalsTimer();
+			}
 			
 			// Stroop methods
 			private function keyHandler(event:KeyboardEvent):void {
@@ -84,6 +96,8 @@
 				xmlResult += "<signal_detected>"+time+"</signal_detected>"+"\n";
 				fadeSignalAcknowledgement.end();
 				fadeSignalAcknowledgement.play();
+				
+				trace(oneSignalTimer.running);
 				
 				if(oneSignalTimer.running) {
 					stopOneSignal(null);
@@ -173,7 +187,6 @@
 				}
 			}
 			
-			
 			// XML methods
 			private function writeXML():void{
 				var CurrentDateTime:Date = new Date();
@@ -232,7 +245,6 @@
 				}
 			}
 			
-			
 			/**
 			 * This method initialize the Excel file for registering data.
 			 */
@@ -279,7 +291,14 @@
 			// Timer Methods
 			private function initSignalsTimer(): void {
 				allSignalsTimer = new Timer(TIMER_FIRST_SIGNAL, 1);
+				oneSignalTimer = new Timer(5 * SECOND, 1);
+				
 				allSignalsTimer.addEventListener(TimerEvent.TIMER, sendSignal);
+				oneSignalTimer.addEventListener(TimerEvent.TIMER, stopOneSignal);
+			}
+			
+			private function startSignalsTimer():void {
+				allSignalsTimer.start();
 			}
 			
 			private function sendSignal(evt:TimerEvent):void {
@@ -296,22 +315,22 @@
 				sheet.setCell(excelSignalsRow, 2, 100*couleur + 10*forme + movement);
 				
 				/// call the .exe and register the starting time
+				
+				// Signal date excel
 				var CurrentDateTime:Date = new Date();
 				var CurrentDF:DateFormatter = new DateFormatter();
 				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
 				var time:String = CurrentDF.format(CurrentDateTime);
 				sheet.setCell(excelSignalsRow, 0, time);
 				
+				// Add to XML
+				xmlResult += "<signal_send>"+time+"</signal_send>"+"\n";
 				
 				// Count until 5 second before stopping the signal,
 				// If it has not been acknowledged as expected
-				oneSignalTimer = new Timer(5 * SECOND, 1);
-				oneSignalTimer.addEventListener(TimerEvent.TIMER, stopOneSignal);
+				//oneSignalTimer = new Timer(5 * SECOND, 1);
+				//oneSignalTimer.addEventListener(TimerEvent.TIMER, stopOneSignal);
 				oneSignalTimer.start();
-			}
-			
-			private function startSignalsTimer():void {
-				allSignalsTimer.start();
 			}
 			
 			private function stopSignalsTimer():void {
@@ -321,9 +340,15 @@
 			
 			private function stopOneSignal(evt:TimerEvent):void {
 				var CurrentDateTime:Date = new Date();
+				
 				var CurrentDF:DateFormatter = new DateFormatter();
 				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
 				var time:String = CurrentDF.format(CurrentDateTime);
+				
+				var random:int;
+					
+				// Add to XML
+				xmlResult += "<signal_stop>"+time+"</signal_stop>"+"\n";
 				
 				oneSignalTimer.stop();
 				oneSignalTimer.reset();
@@ -331,13 +356,12 @@
 				// The end is registered either the signal has been seen or not
 				sheet.setCell(excelSignalsRow++, 1, time);
 				
-				var random:int = Math.floor(Math.random() *
-					(MAX_RANDOM_INTERVAL - MIN_RANDOM_INTERVAL + 1)) + MIN_RANDOM_INTERVAL;
+				random = Math.floor(Math.random() * (MAX_RANDOM_INTERVAL - MIN_RANDOM_INTERVAL + 1)) + MIN_RANDOM_INTERVAL;
 				allSignalsTimer new Timer(random * SECOND, 1);
 				allSignalsTimer.addEventListener(TimerEvent.TIMER, sendSignal);
 				allSignalsTimer.start();
 			}
-			
+
 		]]>
 	</fx:Script>
 	
@@ -346,28 +370,28 @@
 			  title="Stroop Task" verticalAlign="middle">
 		
 		<mx:VBox>
-			
 			<mx:TextArea id="signal_ak" visible="true" width="100%" height="200%" alpha="0.0"
-						 borderVisible="false" fontSize="30" textAlign="center" 
-						 text="Signal acknowledgement received"/>
+						 borderVisible="false" fontSize="28" textAlign="center" 
+						 text="Signal acknowledgement received" includeIn="Test"/>
 			
 			<mx:TextArea id="color_test" width="100%" height="100%" borderVisible="false"
 						 color="#F7FE2E" contentBackgroundColor="#D8D8D8" editable="false"
-						 fontSize="25" text="Blue" textAlign="center"/>
+						 fontSize="32" text="Blue" textAlign="center" includeIn="Test"/>
+			
 			<mx:HBox>
+				<mx:Button id="startButton" label="Start the test" focusEnabled="false" click="startTest();" includeIn="Start"/>
 				
-				<mx:Button id="Green" label="Green" click="printMessage(event)"/>
+				<mx:Button id="Green" label="Green" focusEnabled="false" click="printMessage(event)" includeIn="Test"/>
 				
-				<mx:Button id="Blue" label="Blue" click="printMessage(event)"/>
+				<mx:Button id="Blue" label="Blue" focusEnabled="false" click="printMessage(event)" includeIn="Test"/>
 				
-				<mx:Button id="Yellow" label="Yellow" click="printMessage(event)"/>
+				<mx:Button id="Yellow" label="Yellow" focusEnabled="false" click="printMessage(event)" includeIn="Test"/>
 				
-				<mx:Button id="Red" label="Red" click="printMessage(event)"/>
-				
+				<mx:Button id="Red" label="Red" focusEnabled="false" click="printMessage(event)" includeIn="Test"/>
 			</mx:HBox>
 			
 			<mx:TextArea id="message" width="100%" height="100%" color="#0000FF" 
-						 editable="false" text=""/>
+						 editable="false" text="" includeIn="Test"/>
 			
 		</mx:VBox>
 		
