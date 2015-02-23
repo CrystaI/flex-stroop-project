@@ -7,14 +7,12 @@
 					   creationComplete="initApp();">
 	
 	<s:states>
-		<!-- Define the new view states. -->
 		<s:State name="Start"/>
 		<s:State name="Test"/>
 		<s:State name="End"/>
 	</s:states>
 	
 	<fx:Declarations>
-		<!-- Placer ici les éléments non visuels (services et objets de valeur, par exemple). -->
 		<s:Sequence id="fadeSignalAcknowledgement" duration="1000" target="{signal_ak}">
 			<s:Fade id="fadeShow" alphaFrom="0.0" alphaTo="1.0"/>
 			<s:Fade id="fadeHide" alphaFrom="1.0" alphaTo="0.0"/>
@@ -30,19 +28,23 @@
 			// and add the .swc file to the linked resources.
 			// the import "import com.as3xls.xls.*;" tend to disappear when you add a new one
 			
+			/*-----------------*/
 			/*---- Imports ----*/
+			/*-----------------*/
+			
 			import com.as3xls.xls.ExcelFile;
 			import com.as3xls.xls.Sheet;
 			
 			import flash.events.Event;
-			import flash.events.KeyboardEvent;
 			import flash.events.TimerEvent;
 			import flash.utils.Timer;
 			
-			import mx.controls.Button;
 			import mx.formatters.DateFormatter;
 			
+			/*-------------------*/
 			/*---- Constants ----*/
+			/*-------------------*/
+			
 			private const SECOND:Number = 1000;
 			private const MINUTE:Number = 60 * SECOND;
 			private const TIMER_INTERVAL:Number = 15 * SECOND;
@@ -50,57 +52,73 @@
 			private const MIN_RANDOM_INTERVAL:Number = 4;
 			private const MAX_RANDOM_INTERVAL:Number = 15;
 			
+			/*--------------------*/
 			/*---- Attributes ----*/
+			/*--------------------*/
+			
 			protected var xls:ExcelFile;
 			protected var sheet:Sheet;
+			
 			private var xmlResult:String;
 			private var excelStroopRow:int;
 			private var excelSignalsRow:int;
 			
 			private var nbErrorsStroop:int;
+			private var signalsLaunchCounter:int;
 			
-			private var baseSignalTimer:int;
-			private var allSignalsTimer:Timer;
-			private var oneSignalTimer:Timer;
+			private var timerLaunchSignals:Timer;
+			private var timerSignalDuration:Timer;
 			
 			private var nativeProcessStartupInfo:NativeProcessStartupInfo = new NativeProcessStartupInfo();
 			private var process:NativeProcess = new NativeProcess();
 			
-			
+			/*-----------------*/
 			/*---- Methods ----*/
+			/*-----------------*/
+			
+			/*---- Application Methods ----*/
+			
 			private function onClosing(event:Event):void{
 				this.writeXML();
 				this.writeExcel();
 			}
 			
 			private function initApp():void {
-				//this.runExeFile("C:\\Windows\\System32\\notepad.exe");
+				this.currentState='Start';
 				this.xmlResult = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"+"\n";
 				this.initExcel();
-				this.initSignalsTimer();
+				this.initTimers();
 				this.addEventListener(KeyboardEvent.KEY_UP, keyHandler);
 			}
+			
+			
+			/*---- State Change Methods ----*/
 			
 			private function startTest():void {
 				this.currentState='Test';
 				this.focusManager.setFocus(color_test);
-				this.startSignalsTimer();
+				this.timerLaunchSignals.start();
 			}
 			
-			// Stroop methods
+			private function finishTest():void {
+				// A implémenter
+			}
+			
+			
+			/*---- Stroop Methods ----*/
+			
 			private function keyHandler(event:KeyboardEvent):void {
 				var CurrentDateTime:Date = new Date();
 				var CurrentDF:DateFormatter = new DateFormatter();
 				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
 				var time:String = CurrentDF.format(CurrentDateTime);
+				
 				xmlResult += "<signal_detected>"+time+"</signal_detected>"+"\n";
 				fadeSignalAcknowledgement.end();
 				fadeSignalAcknowledgement.play();
 				
-				trace(oneSignalTimer.running);
-				
-				if(oneSignalTimer.running) {
-					stopOneSignal(null);
+				if(timerSignalDuration.running) {
+					stopSignal(null);
 				}
 			}
 			
@@ -169,8 +187,7 @@
 				}
 				
 			}
-			
-			
+				
 			/**
 			 * This method is used to call a .exe application
 			 * to communicate with our prototype.
@@ -183,11 +200,11 @@
 					nativeProcessStartupInfo.executable = file;
 					process.start(nativeProcessStartupInfo);
 				}
-				else{
-				}
 			}
 			
-			// XML methods
+			
+			/*---- XML methods ----*/
+			
 			private function writeXML():void{
 				var CurrentDateTime:Date = new Date();
 				var CurrentDF:DateFormatter = new DateFormatter();
@@ -201,7 +218,7 @@
 				myPattern = /:/g;
 				time = time.replace(myPattern, "_");
 				
-				var fName:String="./StroopResults"+time+"/xml/stroop_results.xml";//define the name of the folder
+				var fName:String="./StroopResults"+time+"/stroop_results.xml";//define the name of the folder
 				var file:File = File.desktopDirectory.resolvePath(fName);//with "File.desktopDirectory" point the file to the user desktop
 				var stream:FileStream = new FileStream();// Opena new fileStream
 				
@@ -278,88 +295,107 @@
 			 */
 			private function writeExcel():void {
 				xls.sheets.addItem(sheet);
-				var bytes:ByteArray = xls.saveToByteArray();
 				
+				var bytes:ByteArray = xls.saveToByteArray();
 				var stream:FileStream = new FileStream();
-				var file:File = File.desktopDirectory.resolvePath("data.xls");
+				
+				var CurrentDateTime:Date = new Date();
+				var CurrentDF:DateFormatter = new DateFormatter();
+				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
+				var time:String = CurrentDF.format(CurrentDateTime);
+				
+				var myPattern:RegExp = /\//g;  
+				time = time.replace(myPattern, "-");
+				myPattern = /\./g;
+				time = time.replace(myPattern, "-");
+				myPattern = /:/g;
+				time = time.replace(myPattern, "_");
+				
+				var fName:String="./StroopResults"+time+"/data.xls";
+				var file:File = File.desktopDirectory.resolvePath(fName);
+				
 				stream.open(file, FileMode.WRITE);
 				stream.writeBytes(bytes);
 				stream.close();
 			}
 			
 			
-			// Timer Methods
-			private function initSignalsTimer(): void {
-				allSignalsTimer = new Timer(TIMER_FIRST_SIGNAL, 1);
-				oneSignalTimer = new Timer(5 * SECOND, 1);
-				
-				allSignalsTimer.addEventListener(TimerEvent.TIMER, sendSignal);
-				oneSignalTimer.addEventListener(TimerEvent.TIMER, stopOneSignal);
-			}
+			/*---- Timer Methods ----*/
 			
-			private function startSignalsTimer():void {
-				allSignalsTimer.start();
+			private function initTimers(): void {
+				timerLaunchSignals = new Timer(TIMER_FIRST_SIGNAL, 1);
+				timerSignalDuration = new Timer(5 * SECOND, 1);
+				
+				timerLaunchSignals.addEventListener(TimerEvent.TIMER, sendSignal);
+				timerSignalDuration.addEventListener(TimerEvent.TIMER, stopSignal);
 			}
 			
 			private function sendSignal(evt:TimerEvent):void {
-				// Calls our prototype with randomized parameters
-				/// set the parameters
-				var couleur:int = Math.floor(Math.random() *
+				var couleur:int;
+				var forme:int
+				var movement:int;
+				
+				var CurrentDateTime:Date = new Date();
+				var CurrentDF:DateFormatter = new DateFormatter();
+				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
+				
+				var time:String = CurrentDF.format(CurrentDateTime);
+				
+				// --------------------
+				// PARTIE A REVOIR AVEC LA CONNECTION DU PROTO
+				// --------------------
+				
+				// Call our prototype with randomized parameters
+				// Set the parameters
+				couleur = Math.floor(Math.random() *
 					(2 - 1 + 1)) + 1;
-				var forme:int = Math.floor(Math.random() *
+				forme = Math.floor(Math.random() *
 					(3 + 1));
-				var movement:int = Math.floor(Math.random() *
+				movement = Math.floor(Math.random() *
 					(2 + 1));
 				
-				/// register the parameters in the Excel file
+				// Register the parameters in the Excel file
 				sheet.setCell(excelSignalsRow, 2, 100*couleur + 10*forme + movement);
 				
-				/// call the .exe and register the starting time
+				// Call the .exe and register the starting time
+				// this.runExeFile("C:\\Windows\\System32\\notepad.exe");
 				
-				// Signal date excel
-				var CurrentDateTime:Date = new Date();
-				var CurrentDF:DateFormatter = new DateFormatter();
-				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
-				var time:String = CurrentDF.format(CurrentDateTime);
-				sheet.setCell(excelSignalsRow, 0, time);
+				// --------------------
+				// FIN DE LA PARTIE
+				// --------------------
 				
-				// Add to XML
+				// Add a line to XML
 				xmlResult += "<signal_send>"+time+"</signal_send>"+"\n";
 				
-				// Count until 5 second before stopping the signal,
-				// If it has not been acknowledged as expected
-				//oneSignalTimer = new Timer(5 * SECOND, 1);
-				//oneSignalTimer.addEventListener(TimerEvent.TIMER, stopOneSignal);
-				oneSignalTimer.start();
-			}
-			
-			private function stopSignalsTimer():void {
-				allSignalsTimer.stop();
-				allSignalsTimer.reset();
-			}
-			
-			private function stopOneSignal(evt:TimerEvent):void {
-				var CurrentDateTime:Date = new Date();
+				// Add cell date to excel
+				sheet.setCell(excelSignalsRow, 0, time);
 				
+				// Start of the duration signal timer (5sec)
+				timerSignalDuration.start();
+			}
+			
+			private function stopSignal(evt:TimerEvent):void {
+				var CurrentDateTime:Date = new Date();
 				var CurrentDF:DateFormatter = new DateFormatter();
 				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
 				var time:String = CurrentDF.format(CurrentDateTime);
-				
 				var random:int;
 					
-				// Add to XML
+				// Add a line to XML file
 				xmlResult += "<signal_stop>"+time+"</signal_stop>"+"\n";
 				
-				oneSignalTimer.stop();
-				oneSignalTimer.reset();
-				
-				// The end is registered either the signal has been seen or not
+				// End is registered either the signal has been seen or not
 				sheet.setCell(excelSignalsRow++, 1, time);
 				
+				// Reset of the duration signal timer
+				timerSignalDuration.stop();
+				timerSignalDuration.reset();
+				
+				// Reset of the timer to lauch signals with a random value 
 				random = Math.floor(Math.random() * (MAX_RANDOM_INTERVAL - MIN_RANDOM_INTERVAL + 1)) + MIN_RANDOM_INTERVAL;
-				allSignalsTimer new Timer(random * SECOND, 1);
-				allSignalsTimer.addEventListener(TimerEvent.TIMER, sendSignal);
-				allSignalsTimer.start();
+				timerLaunchSignals new Timer(random * SECOND, 1);
+				timerLaunchSignals.addEventListener(TimerEvent.TIMER, sendSignal);
+				timerLaunchSignals.start();
 			}
 
 		]]>
@@ -370,28 +406,33 @@
 			  title="Stroop Task" verticalAlign="middle">
 		
 		<mx:VBox>
-			<mx:TextArea id="signal_ak" visible="true" width="100%" height="200%" alpha="0.0"
-						 borderVisible="false" fontSize="28" textAlign="center" 
-						 text="Signal acknowledgement received" includeIn="Test"/>
+			<mx:TextArea id="signal_ak" includeIn="Test" visible="true" width="100%" height="200%"
+						 alpha="0.0" borderVisible="false" fontSize="28"
+						 text="Signal acknowledgement received" textAlign="center"/>
 			
-			<mx:TextArea id="color_test" width="100%" height="100%" borderVisible="false"
-						 color="#F7FE2E" contentBackgroundColor="#D8D8D8" editable="false"
-						 fontSize="32" text="Blue" textAlign="center" includeIn="Test"/>
+			<mx:TextArea id="color_test" includeIn="Test" width="100%" height="100%"
+						 borderVisible="false" color="#F7FE2E" contentBackgroundColor="#D8D8D8"
+						 editable="false" fontSize="32" text="Blue" textAlign="center"/>
 			
 			<mx:HBox>
-				<mx:Button id="startButton" label="Start the test" focusEnabled="false" click="startTest();" includeIn="Start"/>
+				<mx:Button id="startButton" includeIn="Start" label="Start the test"
+						   click="startTest();" focusEnabled="false"/>
 				
-				<mx:Button id="Green" label="Green" focusEnabled="false" click="printMessage(event)" includeIn="Test"/>
+				<mx:Button id="Green" includeIn="Test" label="Green" click="printMessage(event)"
+						   focusEnabled="false"/>
 				
-				<mx:Button id="Blue" label="Blue" focusEnabled="false" click="printMessage(event)" includeIn="Test"/>
+				<mx:Button id="Blue" includeIn="Test" label="Blue" click="printMessage(event)"
+						   focusEnabled="false"/>
 				
-				<mx:Button id="Yellow" label="Yellow" focusEnabled="false" click="printMessage(event)" includeIn="Test"/>
+				<mx:Button id="Yellow" includeIn="Test" label="Yellow" click="printMessage(event)"
+						   focusEnabled="false"/>
 				
-				<mx:Button id="Red" label="Red" focusEnabled="false" click="printMessage(event)" includeIn="Test"/>
+				<mx:Button id="Red" includeIn="Test" label="Red" click="printMessage(event)"
+						   focusEnabled="false"/>
 			</mx:HBox>
 			
-			<mx:TextArea id="message" width="100%" height="100%" color="#0000FF" 
-						 editable="false" text="" includeIn="Test"/>
+			<mx:TextArea id="message" includeIn="Test" width="100%" height="100%" color="#0000FF"
+						 editable="false" text=""/>
 			
 		</mx:VBox>
 		
