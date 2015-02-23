@@ -9,7 +9,7 @@
 	<s:states>
 		<s:State name="Start"/>
 		<s:State name="Test"/>
-		<s:State name="End"/>
+		<s:State name="Finish"/>
 	</s:states>
 	
 	<fx:Declarations>
@@ -45,12 +45,19 @@
 			/*---- Constants ----*/
 			/*-------------------*/
 			
+			private const SIGNALS_NUMBER:Number = 10;
+			
 			private const SECOND:Number = 1000;
 			private const MINUTE:Number = 60 * SECOND;
+			
 			private const TIMER_INTERVAL:Number = 15 * SECOND;
 			private const TIMER_FIRST_SIGNAL:Number = 15 * SECOND;
+			
 			private const MIN_RANDOM_INTERVAL:Number = 4;
 			private const MAX_RANDOM_INTERVAL:Number = 15;
+			
+			private const XML_NAME:String = "stroop_results.xml";
+			private const XLS_NAME:String = "stroop_results.xls";
 			
 			/*--------------------*/
 			/*---- Attributes ----*/
@@ -59,18 +66,34 @@
 			protected var xls:ExcelFile;
 			protected var sheet:Sheet;
 			
-			private var xmlResult:String;
 			private var excelStroopRow:int;
 			private var excelSignalsRow:int;
 			
+			private var xmlResult:String;
+			
 			private var nbErrorsStroop:int;
-			private var signalsLaunchCounter:int;
+			private var nbSignalsSent:int;
 			
 			private var timerLaunchSignals:Timer;
 			private var timerSignalDuration:Timer;
 			
-			private var nativeProcessStartupInfo:NativeProcessStartupInfo = new NativeProcessStartupInfo();
-			private var process:NativeProcess = new NativeProcess();
+			private var nativeProcessStartupInfo:NativeProcessStartupInfo;
+			private var process:NativeProcess;
+			
+			private var CurrentDateTime:Date;
+			private var CurrentDF:DateFormatter;
+			
+			private var pathFolder:String;
+			
+			/*---------------*/
+			/*---- Array ----*/
+			/*---------------*/
+			
+			private var signals:Array = 
+			[
+				"",
+				""
+			];
 			
 			/*-----------------*/
 			/*---- Methods ----*/
@@ -78,39 +101,77 @@
 			
 			/*---- Application Methods ----*/
 			
+			/**
+			 * This function is called when the application
+			 * is closed and calls xml and xls write methods 
+			 */
 			private function onClosing(event:Event):void{
-				this.writeXML();
-				this.writeExcel();
+				
 			}
 			
+			/**
+			 * This function is called when the application 
+			 * is launched and initializes variables
+			 */
 			private function initApp():void {
 				this.currentState='Start';
-				this.xmlResult = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"+"\n";
+				
+				this.nativeProcessStartupInfo = new NativeProcessStartupInfo();
+				this.process = new NativeProcess();
+				
+				this.CurrentDateTime = new Date();
+				this.CurrentDF = new DateFormatter();
+				this.CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
+				
+				this.initPathFolder();
+				this.initXML();
 				this.initExcel();
 				this.initTimers();
+				
 				this.addEventListener(KeyboardEvent.KEY_UP, keyHandler);
 			}
 			
 			
 			/*---- State Change Methods ----*/
 			
+			/**
+			 * This function is called to reach the
+			 * state 'start' of this application
+			 */
 			private function startTest():void {
 				this.currentState='Test';
+				
+				this.nbSignalsSent = 0;
+				this.nbErrorsStroop = 0;
+				
 				this.focusManager.setFocus(color_test);
+				
 				this.timerLaunchSignals.start();
 			}
 			
+			/**
+			 * This function is called to reach the
+			 * state 'finish' of this application
+			 */
 			private function finishTest():void {
-				// A implémenter
+				this.currentState='Finish';
+				
+				this.timerLaunchSignals.stop();
+				this.timerSignalDuration.stop();
+				
+				this.writeXML();
+				this.writeExcel();
+				
 			}
 			
 			
 			/*---- Stroop Methods ----*/
 			
+			/**
+			 * This function handle keyboard event
+			 * @event : Keyboard event
+			 */
 			private function keyHandler(event:KeyboardEvent):void {
-				var CurrentDateTime:Date = new Date();
-				var CurrentDF:DateFormatter = new DateFormatter();
-				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
 				var time:String = CurrentDF.format(CurrentDateTime);
 				
 				xmlResult += "<signal_detected>"+time+"</signal_detected>"+"\n";
@@ -122,14 +183,51 @@
 				}
 			}
 			
-			private function generateNumber1to4():Number{
+			/**
+			 * This function handles an answer to the stroop test.
+			 * It registers the results.
+			 * @event : Event to register
+			 */
+			private function printMessage(event:Event):void {
+				var time:String = CurrentDF.format(CurrentDateTime);
+				
+				if(buttonToColorUint(event)==color_test.getStyle('color')){
+					message.text = "Correct answer";
+					xmlResult += "<correct_answer>"+time+"</correct_answer>"+"\n";
+					
+					// Excel results
+					sheet.setCell(excelStroopRow, 5, time);
+					sheet.setCell(excelStroopRow, 6, nbErrorsStroop);
+					excelStroopRow++;
+					
+					// Next question
+					nbErrorsStroop = 0;
+					sheet.setCell(excelStroopRow, 4, time);
+					color_test.setStyle('color',generateQuestionColor());
+					color_test.text=generateQuestionText();
+				}
+				else{
+					message.text = "Wrong answer";
+					xmlResult += "<wrong_answer>"+time+"</wrong_answer>"+"\n";
+					
+					nbErrorsStroop++;
+				}
+			}
+			
+			/**
+			 * This function generate a number between 1 to 4;
+			 */
+			private function generateNumber1to4():Number {
 				var low:Number = 1;
 				var high:Number= 4;
 				var result:Number = Math.floor(Math.random() * (1 + high - low)) + low;
 				return result;
 			}
 			
-			private function generateQuestionColor():String{
+			/**
+			 * This function generate a question color;
+			 */
+			private function generateQuestionColor():String {
 				var num:Number = generateNumber1to4();
 				switch(num){
 					case 1:
@@ -150,8 +248,10 @@
 				}
 			}
 			
-			private function generateQuestionText():String{
-				nbErrorsStroop = 0;
+			/**
+			 * This function generate a question text;
+			 */
+			private function generateQuestionText():String {
 				var num:Number = generateNumber1to4();
 				switch(num){
 					case 1:
@@ -172,7 +272,10 @@
 				}
 			}
 			
-			private function buttonToColorUint(event:Event):String{
+			/**
+			 * 
+			 */
+			private function buttonToColorUint(event:Event):String {
 				switch(event.target.id){
 					case "Red":
 						return "16711680";
@@ -188,12 +291,15 @@
 				
 			}
 				
+			
+			/*---- Executable Methods ----*/
+			
 			/**
 			 * This method is used to call a .exe application
 			 * to communicate with our prototype.
 			 * @path : path of the .exe to execute
 			 */
-			private function runExeFile(path:String):void{
+			private function runExeFile(path:String):void {
 				if(NativeProcess.isSupported){
 					var file:File = File.applicationDirectory;
 					file = file.resolvePath(path);
@@ -205,62 +311,44 @@
 			
 			/*---- XML methods ----*/
 			
-			private function writeXML():void{
-				var CurrentDateTime:Date = new Date();
-				var CurrentDF:DateFormatter = new DateFormatter();
-				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
+			/**
+			 * This function init the pathFolder variable where
+			 * the name and the path of the folder are stocked
+			 */
+			private function initPathFolder():void {
 				var time:String = CurrentDF.format(CurrentDateTime);
-				
 				var myPattern:RegExp = /\//g;  
+				
 				time = time.replace(myPattern, "-");
 				myPattern = /\./g;
 				time = time.replace(myPattern, "-");
 				myPattern = /:/g;
 				time = time.replace(myPattern, "_");
 				
-				var fName:String="./StroopResults"+time+"/stroop_results.xml";//define the name of the folder
-				var file:File = File.desktopDirectory.resolvePath(fName);//with "File.desktopDirectory" point the file to the user desktop
-				var stream:FileStream = new FileStream();// Opena new fileStream
-				
-				stream.open(file, FileMode.WRITE);//put the filemode on "write"
-				
-				stream.writeUTFBytes(xmlResult);//assign the string that we have to write
-				stream.close();//close the fileStream
+				this.pathFolder = "./Stroop_Task_" + time + "/";
 			}
 			
 			/**
-			 * This function handles an answer to the stroop test.
-			 * It registers the results.
-			 * @event : Event to register
+			 * This function init the XML result
 			 */
-			private function printMessage(event:Event):void  {
-				var CurrentDateTime:Date = new Date();
-				var CurrentDF:DateFormatter = new DateFormatter();
-				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
-				var time:String = CurrentDF.format(CurrentDateTime);
-				
-				if(buttonToColorUint(event)==color_test.getStyle('color')){
-					message.text = "Correct answer";
-					xmlResult += "<correct_answer>"+time+"</correct_answer>"+"\n";
-					
-					// Excel results
-					sheet.setCell(excelStroopRow, 5, time);
-					sheet.setCell(excelStroopRow, 6, nbErrorsStroop);
-					excelStroopRow++;
-					
-					// Next question
-					sheet.setCell(excelStroopRow, 4, time);
-					color_test.setStyle('color',generateQuestionColor());
-					color_test.text=generateQuestionText();
-				}
-				else{
-					message.text = "Wrong answer";
-					xmlResult += "<wrong_answer>"+time+"</wrong_answer>"+"\n";
-					
-					// Excel results
-					nbErrorsStroop++;
-				}
+			private function initXML():void {
+				this.xmlResult = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"+"\n";
 			}
+			
+			/**
+			 * This function write into a xml file into the pathFolder
+			 */
+			private function writeXML():void {
+				var file:File = File.desktopDirectory.resolvePath(pathFolder + XML_NAME);
+				var stream:FileStream = new FileStream();
+				
+				stream.open(file, FileMode.WRITE);
+				stream.writeUTFBytes(xmlResult);
+				stream.close();
+			}
+
+			
+			/*---- XLS methods ----*/
 			
 			/**
 			 * This method initialize the Excel file for registering data.
@@ -271,9 +359,6 @@
 				sheet.resize(160, 12);
 				
 				sheet.setCell(0, 0, "Today's date:");
-				var CurrentDateTime:Date = new Date();
-				var CurrentDF:DateFormatter = new DateFormatter();
-				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
 				var time:String = CurrentDF.format(CurrentDateTime);
 				sheet.setCell(0, 2, time);
 				
@@ -298,10 +383,6 @@
 				
 				var bytes:ByteArray = xls.saveToByteArray();
 				var stream:FileStream = new FileStream();
-				
-				var CurrentDateTime:Date = new Date();
-				var CurrentDF:DateFormatter = new DateFormatter();
-				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
 				var time:String = CurrentDF.format(CurrentDateTime);
 				
 				var myPattern:RegExp = /\//g;  
@@ -311,8 +392,7 @@
 				myPattern = /:/g;
 				time = time.replace(myPattern, "_");
 				
-				var fName:String="./StroopResults"+time+"/data.xls";
-				var file:File = File.desktopDirectory.resolvePath(fName);
+				var file:File = File.desktopDirectory.resolvePath(pathFolder + XLS_NAME);
 				
 				stream.open(file, FileMode.WRITE);
 				stream.writeBytes(bytes);
@@ -322,6 +402,11 @@
 			
 			/*---- Timer Methods ----*/
 			
+			/**
+			 * This function initializes the two timers of the application
+			 *   - timerLaunchSignals
+			 *   - timerSignalDuration
+			 */
 			private function initTimers(): void {
 				timerLaunchSignals = new Timer(TIMER_FIRST_SIGNAL, 1);
 				timerSignalDuration = new Timer(5 * SECOND, 1);
@@ -330,23 +415,25 @@
 				timerSignalDuration.addEventListener(TimerEvent.TIMER, stopSignal);
 			}
 			
+			/**
+			 * This function send signal to smart cap and
+			 * initalizes the timer signal duration
+			 */
 			private function sendSignal(evt:TimerEvent):void {
+				var time:String = CurrentDF.format(CurrentDateTime);
 				var couleur:int;
 				var forme:int
 				var movement:int;
 				
-				var CurrentDateTime:Date = new Date();
-				var CurrentDF:DateFormatter = new DateFormatter();
-				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
-				
-				var time:String = CurrentDF.format(CurrentDateTime);
-				
-				// --------------------
+				// --------------------------------------------
 				// PARTIE A REVOIR AVEC LA CONNECTION DU PROTO
-				// --------------------
+				// --------------------------------------------
 				
-				// Call our prototype with randomized parameters
-				// Set the parameters
+				// => Le random n'est peut-être pas la meilleur idée,
+				// => préférer un tableau statique.
+				// => Voir attribut Array
+				
+				// Call our prototype with randomized parameters 
 				couleur = Math.floor(Math.random() *
 					(2 - 1 + 1)) + 1;
 				forme = Math.floor(Math.random() *
@@ -360,9 +447,9 @@
 				// Call the .exe and register the starting time
 				// this.runExeFile("C:\\Windows\\System32\\notepad.exe");
 				
-				// --------------------
+				// ---------------------------------------------
 				// FIN DE LA PARTIE
-				// --------------------
+				// --------------------------------------------
 				
 				// Add a line to XML
 				xmlResult += "<signal_send>"+time+"</signal_send>"+"\n";
@@ -374,18 +461,36 @@
 				timerSignalDuration.start();
 			}
 			
+			/**
+			 * This function stop the curent signal if the user acknowledge it or
+			 * the timer signal duration is finished
+			 */
 			private function stopSignal(evt:TimerEvent):void {
-				var CurrentDateTime:Date = new Date();
-				var CurrentDF:DateFormatter = new DateFormatter();
-				CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
 				var time:String = CurrentDF.format(CurrentDateTime);
 				var random:int;
-					
+				
+				// --------------------------------------------
+				// PARTIE A REVOIR AVEC LA CONNECTION DU PROTO
+				// --------------------------------------------
+				
+				// => Mettre fin au signal (faire une fonction)
+				
+				// --------------------------------------------
+				// FIN DE LA PARTIE
+				// --------------------------------------------
+				
 				// Add a line to XML file
 				xmlResult += "<signal_stop>"+time+"</signal_stop>"+"\n";
 				
 				// End is registered either the signal has been seen or not
 				sheet.setCell(excelSignalsRow++, 1, time);
+				
+				// Increments number of signals which is done 
+				nbSignalsSent++;
+				if(nbSignalsSent >= SIGNALS_NUMBER) {
+					finishTest();
+					return;
+				}
 				
 				// Reset of the duration signal timer
 				timerSignalDuration.stop();
@@ -415,6 +520,8 @@
 						 editable="false" fontSize="32" text="Blue" textAlign="center"/>
 			
 			<mx:HBox>
+				<mx:Label id="finishLabel" includeIn="Finish" fontSize="28" text="Thank you for your participation." />
+				
 				<mx:Button id="startButton" includeIn="Start" label="Start the test"
 						   click="startTest();" focusEnabled="false"/>
 				
