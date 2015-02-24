@@ -24,7 +24,8 @@
 		<![CDATA[
 			
 			// To get as3xls to work, make sure it is in the /libs folder.
-			// In Flash Builder, go to menu Windows > Preferences > General > Workspace > Linked Resources
+			// In Flash Builder, go to menu Windows > Preferences > 
+			// General > Workspace > Linked Resources
 			// and add the .swc file to the linked resources.
 			// the import "import com.as3xls.xls.*;" tend to disappear when you add a new one
 			
@@ -45,7 +46,7 @@
 			/*---- Constants ----*/
 			/*-------------------*/
 			
-			private const SIGNALS_NUMBER:Number = 10;
+			private const SIGNALS_NUMBER:Number = 3;
 			
 			private const SECOND:Number = 1000;
 			private const MINUTE:Number = 60 * SECOND;
@@ -91,6 +92,7 @@
 			
 			private var signals:Array = 
 			[
+				"",
 				"",
 				""
 			];
@@ -290,23 +292,6 @@
 				}
 				
 			}
-				
-			
-			/*---- Executable Methods ----*/
-			
-			/**
-			 * This method is used to call a .exe application
-			 * to communicate with our prototype.
-			 * @path : path of the .exe to execute
-			 */
-			private function runExeFile(path:String):void {
-				if(NativeProcess.isSupported){
-					var file:File = File.applicationDirectory;
-					file = file.resolvePath(path);
-					nativeProcessStartupInfo.executable = file;
-					process.start(nativeProcessStartupInfo);
-				}
-			}
 			
 			
 			/*---- XML methods ----*/
@@ -421,35 +406,11 @@
 			 */
 			private function sendSignal(evt:TimerEvent):void {
 				var time:String = CurrentDF.format(CurrentDateTime);
-				var couleur:int;
-				var forme:int
-				var movement:int;
+				var parameters:String = "";
 				
-				// --------------------------------------------
-				// PARTIE A REVOIR AVEC LA CONNECTION DU PROTO
-				// --------------------------------------------
-				
-				// => Le random n'est peut-être pas la meilleur idée,
-				// => préférer un tableau statique.
-				// => Voir attribut Array
-				
-				// Call our prototype with randomized parameters 
-				couleur = Math.floor(Math.random() *
-					(2 - 1 + 1)) + 1;
-				forme = Math.floor(Math.random() *
-					(3 + 1));
-				movement = Math.floor(Math.random() *
-					(2 + 1));
-				
-				// Register the parameters in the Excel file
-				sheet.setCell(excelSignalsRow, 2, 100*couleur + 10*forme + movement);
-				
-				// Call the .exe and register the starting time
-				// this.runExeFile("C:\\Windows\\System32\\notepad.exe");
-				
-				// ---------------------------------------------
-				// FIN DE LA PARTIE
-				// --------------------------------------------
+				// Start the signal emitted by the prototype
+				parameters = signals[nbSignalsSent];
+				startPrototypeSignal(parameters);
 				
 				// Add a line to XML
 				xmlResult += "<signal_send>"+time+"</signal_send>"+"\n";
@@ -469,15 +430,8 @@
 				var time:String = CurrentDF.format(CurrentDateTime);
 				var random:int;
 				
-				// --------------------------------------------
-				// PARTIE A REVOIR AVEC LA CONNECTION DU PROTO
-				// --------------------------------------------
-				
-				// => Mettre fin au signal (faire une fonction)
-				
-				// --------------------------------------------
-				// FIN DE LA PARTIE
-				// --------------------------------------------
+				// Stop the signal emitted by the prototype
+				stopPrototypeSignal()
 				
 				// Add a line to XML file
 				xmlResult += "<signal_stop>"+time+"</signal_stop>"+"\n";
@@ -497,12 +451,67 @@
 				timerSignalDuration.reset();
 				
 				// Reset of the timer to lauch signals with a random value 
-				random = Math.floor(Math.random() * (MAX_RANDOM_INTERVAL - MIN_RANDOM_INTERVAL + 1)) + MIN_RANDOM_INTERVAL;
+				random = Math.floor(Math.random() * (MAX_RANDOM_INTERVAL - MIN_RANDOM_INTERVAL + 1)) 
+					+ MIN_RANDOM_INTERVAL;
 				timerLaunchSignals new Timer(random * SECOND, 1);
 				timerLaunchSignals.addEventListener(TimerEvent.TIMER, sendSignal);
 				timerLaunchSignals.start();
 			}
-
+			
+			
+			/*---- Executable Methods ----*/
+			
+			/**
+			 * This method is used to call a .exe application
+			 * to communicate with our prototype.
+			 * @path : path of the .exe to execute.
+			 */
+			private function runExeFile(path:String):void {
+				if(NativeProcess.isSupported){
+					var file:File = File.applicationDirectory;
+					file = file.resolvePath(path);
+					nativeProcessStartupInfo.executable = file;
+					process.start(nativeProcessStartupInfo);
+				}
+			}
+			
+			
+			/*---- Prototype Methods ----*/
+			
+			/**
+			 * Start a new signal emitted by the prototype with special parameters.
+			 * @parameters : parameters of the signal which is called.
+			 */
+			private function startPrototypeSignal(parameters:String):void {
+				// A implémenter
+				
+				// => Le random n'est peut-être pas la meilleur idée,
+				// => préférer un tableau statique.
+				// => Voir attribut Array
+				
+				// var couleur:int;
+				// var forme:int
+				// var movement:int;
+				
+				// Call our prototype with randomized parameters 
+				// couleur = Math.floor(Math.random() * (2 - 1 + 1)) + 1;
+				// forme = Math.floor(Math.random() * (3 + 1));
+				// movement = Math.floor(Math.random() * (2 + 1));
+				
+				// Register the parameters in the Excel file
+				// sheet.setCell(excelSignalsRow, 2, 100*couleur + 10*forme + movement);
+				
+				// Call the .exe and register the starting time
+				// this.runExeFile("C:\\Windows\\System32\\notepad.exe");
+			}
+			
+			/**
+			 * Stop the signal emitted by the prototype
+			 */
+			private function stopPrototypeSignal():void {
+				// A implémenter
+			}
+			
 		]]>
 	</fx:Script>
 	
@@ -520,7 +529,7 @@
 						 editable="false" fontSize="32" text="Blue" textAlign="center"/>
 			
 			<mx:HBox>
-				<mx:Label id="finishLabel" includeIn="Finish" fontSize="28" text="Thank you for your participation." />
+				<mx:Label id="finishLabel" includeIn="Finish" fontSize="26" text="Thank you for your participation." />
 				
 				<mx:Button id="startButton" includeIn="Start" label="Start the test"
 						   click="startTest();" focusEnabled="false"/>
