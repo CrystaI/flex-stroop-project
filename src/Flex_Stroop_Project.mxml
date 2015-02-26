@@ -22,17 +22,6 @@
 	
 	<fx:Script>
 		<![CDATA[
-			
-			// To get as3xls to work, make sure it is in the /libs folder.
-			// In Flash Builder, go to menu Windows > Preferences > 
-			// General > Workspace > Linked Resources
-			// and add the .swc file to the linked resources.
-			// the import "import com.as3xls.xls.*;" tend to disappear when you add a new one
-			
-			/*-----------------*/
-			/*---- Imports ----*/
-			/*-----------------*/
-			
 			import com.as3xls.xls.ExcelFile;
 			import com.as3xls.xls.Sheet;
 			
@@ -51,14 +40,17 @@
 			private const SECOND:Number = 1000;
 			private const MINUTE:Number = 60 * SECOND;
 			
-			private const TIMER_INTERVAL:Number = 15 * SECOND;
-			private const TIMER_FIRST_SIGNAL:Number = 15 * SECOND;
+			private const TIMER_SIGNAL_INTERVAL:Number = 15 * SECOND;
+			private const TIMER_SIGNAL_DURATION:Number = 5 * SECOND;
 			
 			private const MIN_RANDOM_INTERVAL:Number = 4;
 			private const MAX_RANDOM_INTERVAL:Number = 15;
 			
 			private const XML_NAME:String = "stroop_results.xml";
 			private const XLS_NAME:String = "stroop_results.xls";
+			
+			private const PYTHON_EXEC_PATH:String = "C:/Python27/python.exe";
+			private const PYTHON_CLIENT_PATH:String = "C:/Users/Loïc/Desktop/SmartCap/client.py"
 			
 			/*--------------------*/
 			/*---- Attributes ----*/
@@ -92,9 +84,9 @@
 			
 			private var signals:Array = 
 			[
-				"",
-				"",
-				""
+				"1,255,0,0,1,2.5",
+				"1,0,255,0,2,0.5",
+				"1,0,0,255,3,1.5"
 			];
 			
 			/*-----------------*/
@@ -393,8 +385,8 @@
 			 *   - timerSignalDuration
 			 */
 			private function initTimers(): void {
-				timerLaunchSignals = new Timer(TIMER_FIRST_SIGNAL, 1);
-				timerSignalDuration = new Timer(5 * SECOND, 1);
+				timerLaunchSignals = new Timer(TIMER_SIGNAL_INTERVAL, 1);
+				timerSignalDuration = new Timer(TIMER_SIGNAL_DURATION, 1);
 				
 				timerLaunchSignals.addEventListener(TimerEvent.TIMER, sendSignal);
 				timerSignalDuration.addEventListener(TimerEvent.TIMER, stopSignal);
@@ -410,7 +402,7 @@
 				
 				// Start the signal emitted by the prototype
 				parameters = signals[nbSignalsSent];
-				startPrototypeSignal(parameters);
+				startPrototypeSignal();
 				
 				// Add a line to XML
 				xmlResult += "<signal_send>"+time+"</signal_send>"+"\n";
@@ -420,6 +412,9 @@
 				
 				// Start of the duration signal timer (5sec)
 				timerSignalDuration.start();
+				
+				// Increments number of signals
+				nbSignalsSent++;
 			}
 			
 			/**
@@ -439,8 +434,7 @@
 				// End is registered either the signal has been seen or not
 				sheet.setCell(excelSignalsRow++, 1, time);
 				
-				// Increments number of signals which is done 
-				nbSignalsSent++;
+				// Checks if the max number of signals is reached
 				if(nbSignalsSent >= SIGNALS_NUMBER) {
 					finishTest();
 					return;
@@ -450,11 +444,12 @@
 				timerSignalDuration.stop();
 				timerSignalDuration.reset();
 				
-				// Reset of the timer to lauch signals with a random value 
-				random = Math.floor(Math.random() * (MAX_RANDOM_INTERVAL - MIN_RANDOM_INTERVAL + 1)) 
-					+ MIN_RANDOM_INTERVAL;
-				timerLaunchSignals new Timer(random * SECOND, 1);
-				timerLaunchSignals.addEventListener(TimerEvent.TIMER, sendSignal);
+				// Reset of the lauch signals timer 
+				// random = Math.floor(Math.random() * (MAX_RANDOM_INTERVAL - MIN_RANDOM_INTERVAL + 1)) + MIN_RANDOM_INTERVAL;
+				// timerLaunchSignals new Timer(random * SECOND, 1);
+				// timerLaunchSignals.addEventListener(TimerEvent.TIMER, sendSignal);
+				timerLaunchSignals.stop();
+				timerLaunchSignals.reset();
 				timerLaunchSignals.start();
 			}
 			
@@ -464,13 +459,18 @@
 			/**
 			 * This method is used to call a .exe application
 			 * to communicate with our prototype.
-			 * @path : path of the .exe to execute.
+			 * @path : path of the .exe to execute. 
 			 */
-			private function runExeFile(path:String):void {
+			private function runExeFile(path:String, arguments:Vector.<String>):void {
 				if(NativeProcess.isSupported){
-					var file:File = File.applicationDirectory;
-					file = file.resolvePath(path);
+					// Path to the exec
+					var file:File = File.applicationDirectory.resolvePath(path);
 					nativeProcessStartupInfo.executable = file;
+					
+					// Arguments Vector to pass it to the executable file
+					nativeProcessStartupInfo.arguments = arguments;
+					
+					// Run the process
 					process.start(nativeProcessStartupInfo);
 				}
 			}
@@ -480,36 +480,45 @@
 			
 			/**
 			 * Start a new signal emitted by the prototype with special parameters.
-			 * @parameters : parameters of the signal which is called.
 			 */
-			private function startPrototypeSignal(parameters:String):void {
-				// A implémenter
-				
-				// => Le random n'est peut-être pas la meilleur idée,
-				// => préférer un tableau statique.
-				// => Voir attribut Array
-				
-				// var couleur:int;
-				// var forme:int
-				// var movement:int;
-				
-				// Call our prototype with randomized parameters 
-				// couleur = Math.floor(Math.random() * (2 - 1 + 1)) + 1;
-				// forme = Math.floor(Math.random() * (3 + 1));
-				// movement = Math.floor(Math.random() * (2 + 1));
-				
+			private function startPrototypeSignal():void {
 				// Register the parameters in the Excel file
 				// sheet.setCell(excelSignalsRow, 2, 100*couleur + 10*forme + movement);
 				
-				// Call the .exe and register the starting time
-				// this.runExeFile("C:\\Windows\\System32\\notepad.exe");
+				var arg:Array = signals[nbSignalsSent].split(",");
+				
+				callPrototypeSignal(arg[0], arg[1], arg[2], arg[3], arg[4], arg[5]);
 			}
 			
 			/**
 			 * Stop the signal emitted by the prototype
 			 */
 			private function stopPrototypeSignal():void {
-				// A implémenter
+				callPrototypeSignal("1", "1", "1", "1", "1", "1.0");
+			}
+			
+			/**
+			 * Call the prototype with specific parameters
+			 * @leds: 1 to 4, number of working leds
+			 * @red: 0 to 255
+			 * @green: 0 to 255
+			 * @blue: 0 to 255
+			 * @form: 1 to 4
+			 * @speed: In Hertz
+			 */
+			private function callPrototypeSignal(leds:String, red:String, green:String, blue:String, form:String, speed:String):void {
+				var arguments:Vector.<String> = new Vector.<String>();
+				
+				arguments[0] = PYTHON_CLIENT_PATH;
+				arguments[1] = "-L"; arguments[2] = leds;
+				arguments[3] = "-r"; arguments[4] = red;
+				arguments[5] = "-g"; arguments[6] = green;
+				arguments[7] = "-b"; arguments[8] = blue;
+				arguments[9] = "-f"; arguments[10] = form;
+				arguments[11] = "-v"; arguments[12] = speed;
+				
+				// Call the .exe
+				this.runExeFile(PYTHON_EXEC_PATH, arguments);
 			}
 			
 		]]>
@@ -522,7 +531,7 @@
 		<mx:VBox>
 			<mx:TextArea id="signal_ak" includeIn="Test" visible="true" width="100%" height="200%"
 						 alpha="0.0" borderVisible="false" fontSize="28"
-						 text="Signal acknowledgement received" textAlign="center"/>
+						 text="Signal received" textAlign="center"/>
 			
 			<mx:TextArea id="color_test" includeIn="Test" width="100%" height="100%"
 						 borderVisible="false" color="#F7FE2E" contentBackgroundColor="#D8D8D8"
@@ -547,8 +556,8 @@
 						   focusEnabled="false"/>
 			</mx:HBox>
 			
-			<mx:TextArea id="message" includeIn="Test" width="100%" height="100%" color="#0000FF"
-						 editable="false" text=""/>
+			<mx:TextArea id="message" includeIn="Test" width="100%" height="100%" 
+						 editable="false" text="" textAlign="center" fontSize="14" />
 			
 		</mx:VBox>
 		
