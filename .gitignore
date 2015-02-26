@@ -1,1 +1,4 @@
 bin-debug/*
+CaplightControl.py
+client.py
+serveur.py
