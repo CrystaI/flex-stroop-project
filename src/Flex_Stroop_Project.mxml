@@ -22,6 +22,11 @@
 	
 	<fx:Script>
 		<![CDATA[
+			
+			/*----------------*/
+			/*---- Import ----*/
+			/*----------------*/
+			
 			import com.as3xls.xls.ExcelFile;
 			import com.as3xls.xls.Sheet;
 			
@@ -35,22 +40,22 @@
 			/*---- Constants ----*/
 			/*-------------------*/
 			
-			private const SIGNALS_NUMBER:Number = 3;
-			
 			private const SECOND:Number = 1000;
 			private const MINUTE:Number = 60 * SECOND;
 			
-			private const TIMER_SIGNAL_INTERVAL:Number = 15 * SECOND;
+			private const TIMER_FIRST_SIGNAL_INTERVAL:Number = 15 * SECOND;
 			private const TIMER_SIGNAL_DURATION:Number = 5 * SECOND;
 			
-			private const MIN_RANDOM_INTERVAL:Number = 4;
+			private const MIN_RANDOM_INTERVAL:Number = 6;
 			private const MAX_RANDOM_INTERVAL:Number = 15;
 			
 			private const XML_NAME:String = "stroop_results.xml";
 			private const XLS_NAME:String = "stroop_results.xls";
 			
 			private const PYTHON_EXEC_PATH:String = "C:/Python27/python.exe";
-			private const PYTHON_CLIENT_PATH:String = "C:/Users/Loïc/Desktop/SmartCap/client.py"
+			private const PYTHON_CLIENT_PATH:String = "C:/Users/Loïc/Desktop/SmartCap/client.py";
+			
+			private const TEXT_LIST_SIGNALS_PATH:String = "./signals.txt";
 			
 			/*--------------------*/
 			/*---- Attributes ----*/
@@ -82,12 +87,7 @@
 			/*---- Array ----*/
 			/*---------------*/
 			
-			private var signals:Array = 
-			[
-				"1,255,0,0,1,2.5",
-				"1,0,255,0,2,0.5",
-				"1,0,0,255,3,1.5"
-			];
+			private var signals:Array; 
 			
 			/*-----------------*/
 			/*---- Methods ----*/
@@ -117,6 +117,9 @@
 				this.CurrentDF = new DateFormatter();
 				this.CurrentDF.formatString = "YYYY/MM/DD HH:NN:SS.QQQ"
 				
+				this.signals = new Array();
+				this.open();
+					
 				this.initPathFolder();
 				this.initXML();
 				this.initExcel();
@@ -155,7 +158,6 @@
 				
 				this.writeXML();
 				this.writeExcel();
-				
 			}
 			
 			
@@ -166,6 +168,9 @@
 			 * @event : Keyboard event
 			 */
 			private function keyHandler(event:KeyboardEvent):void {
+				this.CurrentDateTime = new Date();
+				this.CurrentDF = new DateFormatter();
+				this.CurrentDF.formatString = "HH:NN:SS.QQQ"
 				var time:String = CurrentDF.format(CurrentDateTime);
 				
 				xmlResult += "<signal_detected>"+time+"</signal_detected>"+"\n";
@@ -183,6 +188,9 @@
 			 * @event : Event to register
 			 */
 			private function printMessage(event:Event):void {
+				this.CurrentDateTime = new Date();
+				this.CurrentDF = new DateFormatter();
+				this.CurrentDF.formatString = "HH:NN:SS.QQQ"
 				var time:String = CurrentDF.format(CurrentDateTime);
 				
 				if(buttonToColorUint(event)==color_test.getStyle('color')){
@@ -385,7 +393,7 @@
 			 *   - timerSignalDuration
 			 */
 			private function initTimers(): void {
-				timerLaunchSignals = new Timer(TIMER_SIGNAL_INTERVAL, 1);
+				timerLaunchSignals = new Timer(TIMER_FIRST_SIGNAL_INTERVAL, 1);
 				timerSignalDuration = new Timer(TIMER_SIGNAL_DURATION, 1);
 				
 				timerLaunchSignals.addEventListener(TimerEvent.TIMER, sendSignal);
@@ -397,11 +405,12 @@
 			 * initalizes the timer signal duration
 			 */
 			private function sendSignal(evt:TimerEvent):void {
+				this.CurrentDateTime = new Date();
+				this.CurrentDF = new DateFormatter();
+				this.CurrentDF.formatString = "HH:NN:SS.QQQ"
 				var time:String = CurrentDF.format(CurrentDateTime);
-				var parameters:String = "";
 				
 				// Start the signal emitted by the prototype
-				parameters = signals[nbSignalsSent];
 				startPrototypeSignal();
 				
 				// Add a line to XML
@@ -422,6 +431,9 @@
 			 * the timer signal duration is finished
 			 */
 			private function stopSignal(evt:TimerEvent):void {
+				this.CurrentDateTime = new Date();
+				this.CurrentDF = new DateFormatter();
+				this.CurrentDF.formatString = "HH:NN:SS.QQQ"
 				var time:String = CurrentDF.format(CurrentDateTime);
 				var random:int;
 				
@@ -435,7 +447,7 @@
 				sheet.setCell(excelSignalsRow++, 1, time);
 				
 				// Checks if the max number of signals is reached
-				if(nbSignalsSent >= SIGNALS_NUMBER) {
+				if(nbSignalsSent >= signals.length) {
 					finishTest();
 					return;
 				}
@@ -445,11 +457,9 @@
 				timerSignalDuration.reset();
 				
 				// Reset of the lauch signals timer 
-				// random = Math.floor(Math.random() * (MAX_RANDOM_INTERVAL - MIN_RANDOM_INTERVAL + 1)) + MIN_RANDOM_INTERVAL;
-				// timerLaunchSignals new Timer(random * SECOND, 1);
-				// timerLaunchSignals.addEventListener(TimerEvent.TIMER, sendSignal);
-				timerLaunchSignals.stop();
-				timerLaunchSignals.reset();
+				random = Math.floor(Math.random() * (MAX_RANDOM_INTERVAL - MIN_RANDOM_INTERVAL + 1)) + MIN_RANDOM_INTERVAL;
+				timerLaunchSignals = new Timer(random * SECOND, 1);
+				timerLaunchSignals.addEventListener(TimerEvent.TIMER, sendSignal);
 				timerLaunchSignals.start();
 			}
 			
@@ -483,7 +493,7 @@
 			 */
 			private function startPrototypeSignal():void {
 				// Register the parameters in the Excel file
-				// sheet.setCell(excelSignalsRow, 2, 100*couleur + 10*forme + movement);
+				sheet.setCell(excelSignalsRow, 2, signals[nbSignalsSent]);
 				
 				var arg:Array = signals[nbSignalsSent].split(",");
 				
@@ -494,7 +504,7 @@
 			 * Stop the signal emitted by the prototype
 			 */
 			private function stopPrototypeSignal():void {
-				callPrototypeSignal("1", "1", "1", "1", "1", "1.0");
+				callPrototypeSignal("1", "0", "0", "0", "1", "1.0");
 			}
 			
 			/**
@@ -520,6 +530,28 @@
 				// Call the .exe
 				this.runExeFile(PYTHON_EXEC_PATH, arguments);
 			}
+			
+			
+			/*---- File reading ----*/
+			
+			public function open() : void { 
+				try {
+					//URL du fichier XML
+					var fichierTXT:URLRequest = new URLRequest(TEXT_LIST_SIGNALS_PATH);
+
+					//Chargement du fichier
+					var loader:URLLoader = new URLLoader();
+					loader.addEventListener(Event.COMPLETE, onLoaded);
+					loader.load(fichierTXT);
+				} catch (e : Error) {
+					trace("Error selecting file :", e.message);
+				}
+			}
+			
+			private function onLoaded(e : Event): void {
+				signals = e.target.data.split("\n");
+			}
+			
 			
 		]]>
 	</fx:Script>
