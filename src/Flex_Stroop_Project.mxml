@@ -480,6 +480,9 @@
 					// Arguments Vector to pass it to the executable file
 					nativeProcessStartupInfo.arguments = arguments;
 					
+					// Force close
+					if(process.running) process.exit(true);
+					
 					// Run the process
 					process.start(nativeProcessStartupInfo);
 				}
